@@ -23,8 +23,9 @@ declare global {
 
 export default function Alarm() {
     const [time, setTime] = useState<string>("00:00");
-    const [alarmTime, setAlarmTime] = useState<string>("");
-    const [isAlarmSet, setIsAlarmSet] = useState<boolean>(false);
+    // 将闹钟时间固定为07:00（早上7点）
+    const [alarmTime] = useState<string>("07:00");
+    const [isAlarmSet, setIsAlarmSet] = useState<boolean>(true); // 默认已设置
     const [isRinging, setIsRinging] = useState<boolean>(false);
     const [hasTriggered, setHasTriggered] = useState<boolean>(false);
     const [audioStatus, setAudioStatus] = useState<string>("");
@@ -54,6 +55,8 @@ export default function Alarm() {
             console.error("音频错误:", e);
             setAudioStatus("播放错误");
         });
+
+        console.log("闹钟已设置在早上7:00");
 
         // 组件卸载时清理
         return () => {
@@ -169,13 +172,15 @@ export default function Alarm() {
         }
     };
 
-    // 设置闹钟
-    const handleSetAlarm = () => {
-        if (alarmTime) {
-            setIsAlarmSet(true);
-            setHasTriggered(false); // 重置触发状态
-            alert(`闹钟已设置在 ${alarmTime}`);
-            console.log(`闹钟已设置: ${alarmTime}`);
+    // 启用/禁用闹钟
+    const toggleAlarm = () => {
+        setIsAlarmSet(!isAlarmSet);
+        setHasTriggered(false);
+        if (!isAlarmSet) {
+            console.log("闹钟已启用 - 设置在早上7:00");
+        } else {
+            console.log("闹钟已禁用");
+            stopAlarm();
         }
     };
 
@@ -194,14 +199,6 @@ export default function Alarm() {
         }, 3000);
     };
 
-    // 取消闹钟
-    const handleCancelAlarm = () => {
-        setIsAlarmSet(false);
-        setAlarmTime("");
-        setHasTriggered(false);
-        stopAlarm();
-    };
-
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
             <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
@@ -210,41 +207,27 @@ export default function Alarm() {
                 {/* 当前时间显示 */}
                 <div className="text-5xl font-mono text-center mb-8">{time}</div>
 
-                {/* 闹钟设置 */}
-                <div className="mb-6">
-                    <label className="block text-sm font-medium mb-2">设置闹钟时间</label>
-                    <div className="flex gap-2">
-                        <input
-                            type="time"
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            value={alarmTime}
-                            onChange={(e) => setAlarmTime(e.target.value)}
-                            disabled={isAlarmSet}
-                        />
-                        {!isAlarmSet ? (
+                {/* 固定闹钟时间显示 */}
+                <div className="mb-6 text-center">
+                    <div className="text-xl font-medium mb-2">闹钟设置</div>
+                    <div className="flex flex-col items-center">
+                        <div className="text-3xl font-bold mb-2">早上 7:00</div>
+                        <div className="mt-2">
                             <button
-                                className="px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                onClick={handleSetAlarm}
-                                disabled={!alarmTime}
+                                className={`px-4 py-2 ${isAlarmSet ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} text-white font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
+                                onClick={toggleAlarm}
                             >
-                                设置
+                                {isAlarmSet ? '禁用闹钟' : '启用闹钟'}
                             </button>
-                        ) : (
-                            <button
-                                className="px-4 py-2 bg-red-600 text-white font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
-                                onClick={handleCancelAlarm}
-                            >
-                                取消
-                            </button>
-                        )}
+                        </div>
                     </div>
                 </div>
 
                 {/* 闹钟状态 */}
                 {isAlarmSet && (
-                    <div className="text-center mb-4">
-                        <p className="text-sm">
-                            闹钟已设置在: <span className="font-bold">{alarmTime}</span>
+                    <div className="text-center mb-4 bg-green-100 p-3 rounded-md">
+                        <p className="text-green-800">
+                            闹钟已设置在 <span className="font-bold">早上7:00</span>
                         </p>
                     </div>
                 )}
