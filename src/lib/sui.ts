@@ -3,6 +3,19 @@ import { getFaucetHost, requestSuiFromFaucetV1 } from '@mysten/sui/faucet';
 import { MIST_PER_SUI } from '@mysten/sui/utils';
 import { Transaction } from '@mysten/sui/transactions';
 
+// 为钱包签名者定义一个接口
+interface WalletSigner {
+    signAndExecuteTransactionBlock: (params: { transactionBlock: unknown }) => Promise<{ digest: string }>;
+}
+
+// 类型转换辅助函数
+const isWalletSigner = (obj: unknown): obj is WalletSigner => {
+    return obj !== null &&
+        typeof obj === 'object' &&
+        'signAndExecuteTransactionBlock' in obj &&
+        typeof (obj as WalletSigner).signAndExecuteTransactionBlock === 'function';
+};
+
 // 智能合约地址
 const CONTRACT_ADDRESS = '0xba1e0a3b235d591e338cca68b226a8bff51010041391e1b478df41776daf7066';
 
@@ -54,7 +67,7 @@ export const requestSuiFromFaucet = async (address: string) => {
 
 // 用户存款功能 - 至少2.1 SUI
 export const depositToContract = async (
-    signer: unknown, // 临时使用unknown类型避开类型检查
+    signer: unknown, // 使用 unknown 类型
     amount: number // SUI数量
 ) => {
     try {
@@ -92,26 +105,19 @@ export const depositToContract = async (
             const txBytes = await tx.build({ client: suiClient });
             console.log('交易已构建，准备执行');
 
-            // 执行交易，使用类型断言，增加了错误处理
+            // 执行交易
             try {
-                // 优先尝试使用标准接口签名
-                if (typeof (signer as any).signAndExecuteTransactionBlock === 'function') {
+                // 使用类型守卫确定签名者类型
+                if (isWalletSigner(signer)) {
                     console.log('使用钱包的signAndExecuteTransactionBlock方法');
-                    const result = await (signer as any).signAndExecuteTransactionBlock({
+                    const result = await signer.signAndExecuteTransactionBlock({
                         transactionBlock: txBytes,
                     });
                     console.log('交易执行成功:', result);
                     return { success: true, txId: result.digest };
-                }
-                // 使用客户端的签名方法（兼容不同钱包实现）
-                else {
-                    console.log('使用SuiClient的signAndExecuteTransaction方法');
-                    const result = await suiClient.signAndExecuteTransaction({
-                        signer: signer as any,
-                        transaction: tx,
-                    });
-                    console.log('交易执行成功:', result);
-                    return { success: true, txId: result.digest };
+                } else {
+                    // 如果不支持标准接口，抛出错误
+                    throw new Error('不支持的钱包类型，无法执行交易');
                 }
             } catch (signError) {
                 console.error('签名执行交易失败:', signError);
@@ -147,7 +153,7 @@ const getErrorMessage = (error: unknown): string => {
 
 // 提交起床时间
 export const submitWakeupTime = async (
-    signer: unknown, // 临时使用unknown类型避开类型检查
+    signer: unknown, // 使用 unknown 类型
     timestamp: number // 起床时间的时间戳
 ) => {
     try {
@@ -159,14 +165,17 @@ export const submitWakeupTime = async (
             arguments: [tx.pure.u64(timestamp)], // 使用u64类型正确序列化时间戳
         });
 
-        // 执行交易，使用类型断言
-        const result = await suiClient.signAndExecuteTransaction({
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            signer: signer as any, // 类型断言为any，避免类型错误
-            transaction: tx,
-        });
-
-        return { success: true, txId: result.digest };
+        // 执行交易
+        if (isWalletSigner(signer)) {
+            const txBlock = await tx.build({ client: suiClient });
+            const result = await signer.signAndExecuteTransactionBlock({
+                transactionBlock: txBlock
+            });
+            return { success: true, txId: result.digest };
+        } else {
+            // 如果不是WalletSigner类型，可能需要另一种处理方式
+            throw new Error('无效的签名者类型');
+        }
     } catch (error) {
         console.error('提交起床时间失败:', error);
         return { success: false, error };
@@ -218,14 +227,16 @@ export const withdrawDeposit = async (signer: unknown) => {
             arguments: [],
         });
 
-        // 执行交易，使用类型断言
-        const result = await suiClient.signAndExecuteTransaction({
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            signer: signer as any, // 类型断言为any，避免类型错误
-            transaction: tx,
-        });
-
-        return { success: true, txId: result.digest };
+        // 执行交易
+        if (isWalletSigner(signer)) {
+            const txBlock = await tx.build({ client: suiClient });
+            const result = await signer.signAndExecuteTransactionBlock({
+                transactionBlock: txBlock
+            });
+            return { success: true, txId: result.digest };
+        } else {
+            throw new Error('不支持的钱包类型，无法执行交易');
+        }
     } catch (error) {
         console.error('提取存款失败:', error);
         return { success: false, error };

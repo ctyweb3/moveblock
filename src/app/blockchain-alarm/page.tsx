@@ -109,7 +109,7 @@ export default function BlockchainAlarmPage() {
             // 设置标志，表示已经请求过存款信息
             hasRequestedDepositInfo.current = true;
         }
-    }, [updateState]);
+    }, [updateState, state.isLoading]);
 
     // 检查钱包扩展是否安装
     useEffect(() => {

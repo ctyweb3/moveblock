@@ -3,6 +3,11 @@ import { depositToContract, getBalance } from '@/lib/sui';
 import { getErrorMessage } from '@/lib/error-utils';
 import { WalletType } from './types';
 
+// 定义具有签名方法的钱包或账户的接口
+interface SigningWallet {
+    signAndExecuteTransactionBlock: (params: { transactionBlock: unknown }) => Promise<{ digest: string }>;
+}
+
 interface DepositFormProps {
     isConnected: boolean;
     wallet: WalletType | null;
@@ -65,12 +70,23 @@ const DepositForm: React.FC<DepositFormProps> = ({
 
             // 获取钱包对象中的signAndExecuteTransactionBlock方法
             // 由于类型原因，需要确定钱包对象的正确方法
-            const walletWithSignMethod =
-                wallet.accounts[0] && typeof (wallet.accounts[0] as any).signAndExecuteTransactionBlock === 'function'
-                    ? wallet.accounts[0]  // 使用第一个账户
-                    : (wallet as any).signAndExecuteTransactionBlock
-                        ? wallet  // 使用钱包对象本身
-                        : null;   // 无法找到签名方法
+            const hasSignMethod = (obj: unknown): obj is SigningWallet => {
+                return obj !== null &&
+                    typeof obj === 'object' &&
+                    'signAndExecuteTransactionBlock' in obj &&
+                    typeof (obj as SigningWallet).signAndExecuteTransactionBlock === 'function';
+            };
+
+            let walletWithSignMethod: SigningWallet | null = null;
+
+            // 检查账户对象是否有签名方法
+            if (wallet.accounts && wallet.accounts.length > 0 && hasSignMethod(wallet.accounts[0])) {
+                walletWithSignMethod = wallet.accounts[0] as SigningWallet;
+            }
+            // 检查钱包对象本身是否有签名方法
+            else if (hasSignMethod(wallet)) {
+                walletWithSignMethod = wallet as unknown as SigningWallet;
+            }
 
             if (!walletWithSignMethod) {
                 console.error('无法找到钱包的签名方法');
