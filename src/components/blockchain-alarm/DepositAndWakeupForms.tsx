@@ -17,6 +17,12 @@ interface DepositAndWakeupFormsProps {
     onError: (error: string) => void;
     onStartLoading: () => void;
     onStopLoading: () => void;
+    onWalletUpdate: (walletData: {
+        isConnected: boolean;
+        walletAddress: string;
+        wallet: WalletType | null;
+        balance: number;
+    }) => void;
 }
 
 /**
@@ -35,7 +41,9 @@ const DepositAndWakeupForms: React.FC<DepositAndWakeupFormsProps> = ({
     onFetchDepositInfo,
     onError,
     onStartLoading,
-    onStopLoading
+    onStopLoading,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    onWalletUpdate
 }) => {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

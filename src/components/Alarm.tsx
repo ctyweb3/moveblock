@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 // 为AudioContext定义接口，避免使用any
 interface AudioContextType {
@@ -31,68 +31,35 @@ export default function Alarm() {
     const [audioStatus, setAudioStatus] = useState<string>("");
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
-    // 触发闹钟
-    const triggerAlarm = () => {
-        setIsRinging(true);
-        playAudio();
-    };
+    // 替代方案播放音频 - 定义在前面，避免循环依赖
+    const playFallbackAudio = useCallback(() => {
+        try {
+            // 使用类型定义代替any
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            oscillator.type = "sine";
+            oscillator.frequency.setValueAtTime(440, audioContext.currentTime); // 440 Hz = A4 音符
 
-    // 初始化音频
-    useEffect(() => {
-        // 创建一个全局音频元素，而不是依赖于JSX中的音频元素
-        const audio = new Audio("/alarm-sound.mp3");
-        audio.loop = true;
-        audio.preload = "auto";
-        audioRef.current = audio;
+            oscillator.connect(audioContext.destination);
+            oscillator.start();
 
-        // 添加音频事件监听
-        audio.addEventListener("play", () => {
-            console.log("音频开始播放");
-            setAudioStatus("播放中");
-        });
+            // 播放1秒
+            setTimeout(() => {
+                oscillator.stop();
+            }, 1000);
 
-        audio.addEventListener("error", (e) => {
-            console.error("音频错误:", e);
-            setAudioStatus("播放错误");
-        });
+            setAudioStatus("使用Web Audio API播放");
+        } catch (error) {
+            console.error("Web Audio API 播放失败:", error);
+            setAudioStatus(`备用播放失败: ${error}`);
 
-        console.log("闹钟已设置在早上7:00");
-
-        // 组件卸载时清理
-        return () => {
-            audio.pause();
-            audio.src = "";
-        };
+            // 最后手段：使用浏览器alert
+            alert("闹钟时间到了!");
+        }
     }, []);
 
-    // 更新当前时间
-    useEffect(() => {
-        const interval = setInterval(() => {
-            const now = new Date();
-            const hours = String(now.getHours()).padStart(2, "0");
-            const minutes = String(now.getMinutes()).padStart(2, "0");
-            setTime(`${hours}:${minutes}`);
-
-            // 检查是否到了闹钟时间
-            const currentTimeStr = `${hours}:${minutes}`;
-
-            // 调试信息
-            if (isAlarmSet) {
-                console.log(`当前时间: ${currentTimeStr}, 闹钟时间: ${alarmTime}, 已触发: ${hasTriggered}`);
-            }
-
-            if (isAlarmSet && currentTimeStr === alarmTime && !hasTriggered) {
-                console.log("触发闹钟!");
-                triggerAlarm();
-                setHasTriggered(true); // 标记已触发，避免重复触发
-            }
-        }, 1000);
-
-        return () => clearInterval(interval);
-    }, [isAlarmSet, alarmTime, hasTriggered, triggerAlarm]);
-
     // 播放音频
-    const playAudio = () => {
+    const playAudio = useCallback(() => {
         if (!audioRef.current) {
             setAudioStatus("音频元素未找到");
             console.error("音频元素未找到");
@@ -131,34 +98,67 @@ export default function Alarm() {
             setAudioStatus(`播放异常: ${error}`);
             playFallbackAudio();
         }
-    };
+    }, [playFallbackAudio]); // 添加 playFallbackAudio 作为依赖
 
-    // 替代方案播放音频
-    const playFallbackAudio = () => {
-        try {
-            // 使用类型定义代替any
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const oscillator = audioContext.createOscillator();
-            oscillator.type = "sine";
-            oscillator.frequency.setValueAtTime(440, audioContext.currentTime); // 440 Hz = A4 音符
+    // 初始化音频
+    useEffect(() => {
+        // 创建一个全局音频元素，而不是依赖于JSX中的音频元素
+        const audio = new Audio("/alarm-sound.mp3");
+        audio.loop = true;
+        audio.preload = "auto";
+        audioRef.current = audio;
 
-            oscillator.connect(audioContext.destination);
-            oscillator.start();
+        // 添加音频事件监听
+        audio.addEventListener("play", () => {
+            console.log("音频开始播放");
+            setAudioStatus("播放中");
+        });
 
-            // 播放1秒
-            setTimeout(() => {
-                oscillator.stop();
-            }, 1000);
+        audio.addEventListener("error", (e) => {
+            console.error("音频错误:", e);
+            setAudioStatus("播放错误");
+        });
 
-            setAudioStatus("使用Web Audio API播放");
-        } catch (error) {
-            console.error("Web Audio API 播放失败:", error);
-            setAudioStatus(`备用播放失败: ${error}`);
+        console.log("闹钟已设置在早上7:00");
 
-            // 最后手段：使用浏览器alert
-            alert("闹钟时间到了!");
-        }
-    };
+        // 组件卸载时清理
+        return () => {
+            audio.pause();
+            audio.src = "";
+        };
+    }, []);
+
+    // 更新当前时间
+    useEffect(() => {
+        // 在 useEffect 内部定义 triggerAlarm 函数
+        const triggerAlarm = () => {
+            setIsRinging(true);
+            playAudio();
+        };
+
+        const interval = setInterval(() => {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, "0");
+            const minutes = String(now.getMinutes()).padStart(2, "0");
+            setTime(`${hours}:${minutes}`);
+
+            // 检查是否到了闹钟时间
+            const currentTimeStr = `${hours}:${minutes}`;
+
+            // 调试信息
+            if (isAlarmSet) {
+                console.log(`当前时间: ${currentTimeStr}, 闹钟时间: ${alarmTime}, 已触发: ${hasTriggered}`);
+            }
+
+            if (isAlarmSet && currentTimeStr === alarmTime && !hasTriggered) {
+                console.log("触发闹钟!");
+                triggerAlarm();
+                setHasTriggered(true); // 标记已触发，避免重复触发
+            }
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [isAlarmSet, alarmTime, hasTriggered, playAudio]);
 
     // 停止闹钟
     const stopAlarm = () => {

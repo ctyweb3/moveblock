@@ -20,6 +20,12 @@ interface FunctionalAreaProps {
     onError: (error: string) => void;
     onStartLoading: () => void;
     onStopLoading: () => void;
+    onWalletUpdate: (walletData: {
+        isConnected: boolean;
+        walletAddress: string;
+        wallet: WalletType | null;
+        balance: number;
+    }) => void;
 }
 
 /**
@@ -39,7 +45,8 @@ const FunctionalArea: React.FC<FunctionalAreaProps> = ({
     onFetchDepositInfo,
     onError,
     onStartLoading,
-    onStopLoading
+    onStopLoading,
+    onWalletUpdate
 }) => {
     if (!isConnected) return null;
 
@@ -63,6 +70,7 @@ const FunctionalArea: React.FC<FunctionalAreaProps> = ({
                 onError={onError}
                 onStartLoading={onStartLoading}
                 onStopLoading={onStopLoading}
+                onWalletUpdate={onWalletUpdate}
             />
 
             {/* 提取存款区域 */}
